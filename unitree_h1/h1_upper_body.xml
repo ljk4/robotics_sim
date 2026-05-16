@@ -1,0 +1,241 @@
+<mujoco model="h1_upper_body">
+  <!-- ============================================================
+       Unitree H1 人形机器人 - 上身模型
+       包含：骨盆(固定) + 躯干 + 双臂
+       骨盆通过移除 freejoint 实现固定，作为上身运动的基座
+       本文件可独立在 MuJoCo 模拟器中打开查看上身结构
+       ============================================================ -->
+
+  <!-- 编译器设置：
+       angle="radian"  - 所有角度单位使用弧度(rad)
+       meshdir="assets" - STL网格文件存放在assets子目录
+       autolimits="true" - 自动根据关节范围计算力矩/速度限制 -->
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+
+  <!-- 场景统计：meansize 用于自动计算渲染缩放和导航灵敏度 -->
+  <statistic meansize="0.05"/>
+
+  <!-- ========== 默认属性定义 ==========
+       使用MJCF的class继承机制，子body通过childclass="h1"继承这些默认值
+       避免在每个joint/geom上重复设置相同属性 -->
+  <default>
+    <!-- 根默认类：定义关节的阻尼和电枢惯性 -->
+    <default class="h1">
+      <!-- damping="1"    - 关节粘性阻尼系数，模拟关节摩擦力
+           armature="0.1" - 电枢惯性，代表电机转子的等效转动惯量 -->
+      <joint damping="1" armature="0.1"/>
+
+      <!-- 视觉几何体默认：用于渲染显示，不参与物理碰撞计算 -->
+      <default class="visual">
+        <!-- type="mesh"          - 使用STL网格文件作为几何形状
+             contype="0"          - 不产生任何类型的接触
+             conaffinity="0"      - 不对任何类型的接触做出响应
+             group="2"            - 渲染组2（通常用于视觉网格）
+             material="black"     - 默认黑色材质 -->
+        <geom type="mesh" contype="0" conaffinity="0" group="2" material="black"/>
+      </default>
+
+      <!-- 碰撞几何体默认：用于物理碰撞检测，不渲染（group=3） -->
+      <default class="collision">
+        <!-- group="3"  - 渲染组3（碰撞几何体），通常不显示
+             mass="0"   - 质量设为0，因为惯量已由inertial元素定义
+             density="0" - 密度为0，不从几何形状计算质量 -->
+        <geom group="3" mass="0" density="0"/>
+      </default>
+
+      <!-- 站点默认：imu等传感器安装位置，半透明显示 -->
+      <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
+    </default>
+  </default>
+
+  <!-- ========== 资源文件 ==========
+       仅加载上身所需的网格和材质，减小文件依赖 -->
+  <asset>
+    <!-- 材质定义 -->
+    <material name="black" rgba="0.1 0.1 0.1 1"/>
+    <material name="white" rgba="1 1 1 1"/>
+
+    <!-- 骨盆网格 -->
+    <mesh file="pelvis.stl"/>
+    <!-- 躯干网格 -->
+    <mesh file="torso_link.stl"/>
+    <mesh file="logo_link.stl"/>
+    <!-- 左臂网格（肩部→肘部 共4个连杆） -->
+    <mesh file="left_shoulder_pitch_link.stl"/>
+    <mesh file="left_shoulder_roll_link.stl"/>
+    <mesh file="left_shoulder_yaw_link.stl"/>
+    <mesh file="left_elbow_link.stl"/>
+    <!-- 右臂网格（肩部→肘部 共4个连杆） -->
+    <mesh file="right_shoulder_pitch_link.stl"/>
+    <mesh file="right_shoulder_roll_link.stl"/>
+    <mesh file="right_shoulder_yaw_link.stl"/>
+    <mesh file="right_elbow_link.stl"/>
+  </asset>
+
+  <!-- ========== 运动学树（世界坐标系） ========== -->
+  <worldbody>
+    <!-- 定向光源：照亮机器人身体 -->
+    <light mode="targetbodycom" target="torso_link" pos="2 0 2.5"/>
+
+    <!-- ===== 骨盆（根连杆）=====
+         位置：距地面约1.06m（H1机器人髋部高度）
+         骨盆固定在世界坐标系中，因此移除了freejoint
+         childclass="h1" 使所有子body继承h1默认类的属性 -->
+    <body name="pelvis" pos="0 0 1.06" childclass="h1">
+      <!-- 惯性参数：定义骨盆的质量分布
+           pos    - 质心相对于body坐标系原点的偏移(m)
+           quat   - 惯性主轴相对于body坐标系的旋转（单位四元数 w,x,y,z）
+           mass   - 质量(kg)
+           diaginertia - 主对角线惯性矩(Ixx, Iyy, Izz) 单位: kg·m² -->
+      <inertial pos="-0.0002 4e-05 -0.04522" quat="0.498303 0.499454 -0.500496 0.501741" mass="5.39"
+        diaginertia="0.0490211 0.0445821 0.00824619"/>
+      <!-- 骨盆固定在世界坐标系中：无需freejoint，body本身即为固定基座 -->
+      <geom class="visual" mesh="pelvis"/>
+
+      <!-- ===== 躯干 =====
+           躯干是上身的核心连杆，连接骨盆与双臂
+           包含头部、躯干、髋部的碰撞几何体 -->
+      <body name="torso_link">
+        <!-- 躯干惯性参数（质量约17.8kg，是机器人最重的部件） -->
+        <inertial pos="0.000489 0.002797 0.20484" quat="0.999989 -0.00130808 -0.00282289 -0.00349105" mass="17.789"
+          diaginertia="0.487315 0.409628 0.127837"/>
+        <!-- 躯干绕Z轴旋转关节（腰部旋转），范围约±135° -->
+        <joint name="torso" axis="0 0 1" range="-2.35 2.35"/>
+        <!-- 躯干视觉网格 -->
+        <geom class="visual" mesh="torso_link"/>
+        <!-- 品牌logo（白色） -->
+        <geom class="visual" material="white" mesh="logo_link"/>
+        <!-- 头部碰撞体：胶囊形，模拟头顶到头根 -->
+        <geom name="head" class="collision" type="capsule" size="0.06" fromto="0.05 0 0.68 0.05 0 0.6"/>
+        <!-- 头盔碰撞体：球形，位于头顶最高处 -->
+        <geom name="helmet" class="collision" type="sphere" size="0.073" pos="0.045 0 0.68"/>
+        <!-- 躯干碰撞体：盒形，覆盖胸腹部 -->
+        <geom name="torso" class="collision" type="box" size="0.07 0.1 0.22" pos="0 0 0.25"/>
+        <!-- 髋部碰撞体：胶囊形，覆盖骨盆上方连接区域（左右方向） -->
+        <geom name="hip" class="collision" type="capsule" size="0.05" fromto="0 -0.1 -0.05 0 0.1 -0.05"/>
+        <!-- IMU传感器安装位置（惯性测量单元） -->
+        <site name="imu" pos="-0.04452 -0.01891 0.27756"/>
+
+        <!-- ===== 左肩俯仰连杆 =====
+             左臂起点，位于躯干左上方
+             quat="0.976296 0.216438 0 0" 为初始安装姿态 -->
+        <body name="left_shoulder_pitch_link" pos="0.0055 0.15535 0.42999" quat="0.976296 0.216438 0 0">
+          <inertial pos="0.005045 0.053657 -0.015715" quat="0.814858 0.579236 -0.0201072 -0.00936488" mass="1.033"
+            diaginertia="0.00129936 0.000987113 0.000858198"/>
+          <!-- 左肩俯仰关节：绕Y轴旋转（手臂前后摆动），范围约±164° -->
+          <joint name="left_shoulder_pitch" axis="0 1 0" range="-2.87 2.87"/>
+          <geom class="visual" mesh="left_shoulder_pitch_link"/>
+
+          <!-- ===== 左肩横滚连杆 ===== -->
+          <body name="left_shoulder_roll_link" pos="-0.0055 0.0565 -0.0165" quat="0.976296 -0.216438 0 0">
+            <inertial pos="0.000679 0.00115 -0.094076" quat="0.732491 0.00917179 0.0766656 0.676384" mass="0.793"
+              diaginertia="0.00170388 0.00158256 0.00100336"/>
+            <!-- 左肩横滚关节：绕X轴旋转（手臂外展/内收），范围约-19.5°~178° -->
+            <joint name="left_shoulder_roll" axis="1 0 0" range="-0.34 3.11"/>
+            <geom class="visual" mesh="left_shoulder_roll_link"/>
+            <!-- 左肩碰撞体 -->
+            <geom name="left_shoulder" class="collision" type="capsule" size="0.04" fromto="0 0.01 0.008 0 -0.07 -0.02"/>
+
+            <!-- ===== 左肩偏航连杆 ===== -->
+            <body name="left_shoulder_yaw_link" pos="0 0 -0.1343">
+              <inertial pos="0.01365 0.002767 -0.16266" quat="0.703042 -0.0331229 -0.0473362 0.708798" mass="0.839"
+                diaginertia="0.00408038 0.00370367 0.000622687"/>
+              <!-- 左肩偏航关节：绕Z轴旋转（大臂内外旋），范围约-74.5°~255° -->
+              <joint name="left_shoulder_yaw" axis="0 0 1" range="-1.3 4.45"/>
+              <geom class="visual" mesh="left_shoulder_yaw_link"/>
+              <!-- 左上臂碰撞体：胶囊形 -->
+              <geom class="collision" type="capsule" size="0.03" fromto="0 0 0.15 0 0 -0.2"/>
+
+              <!-- ===== 左肘连杆 ===== -->
+              <body name="left_elbow_link" pos="0.0185 0 -0.198">
+                <inertial pos="0.15908 -0.000144 -0.015776" quat="0.0765232 0.720327 0.0853116 0.684102" mass="0.669"
+                  diaginertia="0.00601829 0.00600579 0.000408305"/>
+                <!-- 左肘关节：绕Y轴旋转（肘部屈伸），范围约-71.6°~149.5° -->
+                <joint name="left_elbow" axis="0 1 0" range="-1.25 2.61"/>
+                <geom class="visual" mesh="left_elbow_link"/>
+                <!-- 左前臂碰撞体：胶囊形 -->
+                <geom class="collision" type="capsule" size="0.025" fromto="0 0 0 0.28 0 -0.015"/>
+                <!-- 左手末端碰撞体：球形 -->
+                <geom class="collision" type="sphere" size="0.033" pos="0.28 0 -0.015"/>
+              </body>
+            </body>
+          </body>
+        </body>
+
+        <!-- ===== 右肩俯仰连杆 =====
+             右臂起点，位于躯干右上方
+             结构与左臂完全对称，Y轴偏移取反 -->
+        <body name="right_shoulder_pitch_link" pos="0.0055 -0.15535 0.42999" quat="0.976296 -0.216438 0 0">
+          <inertial pos="0.005045 -0.053657 -0.015715" quat="0.579236 0.814858 0.00936488 0.0201072" mass="1.033"
+            diaginertia="0.00129936 0.000987113 0.000858198"/>
+          <!-- 右肩俯仰关节：绕Y轴旋转，范围±164° -->
+          <joint name="right_shoulder_pitch" axis="0 1 0" range="-2.87 2.87"/>
+          <geom class="visual" mesh="right_shoulder_pitch_link"/>
+
+          <!-- ===== 右肩横滚连杆 ===== -->
+          <body name="right_shoulder_roll_link" pos="-0.0055 -0.0565 -0.0165" quat="0.976296 0.216438 0 0">
+            <inertial pos="0.000679 -0.00115 -0.094076" quat="0.676384 0.0766656 0.00917179 0.732491" mass="0.793"
+              diaginertia="0.00170388 0.00158256 0.00100336"/>
+            <!-- 右肩横滚关节：绕X轴旋转，范围约-178°~19.5°（与左肩对称反向） -->
+            <joint name="right_shoulder_roll" axis="1 0 0" range="-3.11 0.34"/>
+            <geom class="visual" mesh="right_shoulder_roll_link"/>
+            <!-- 右肩碰撞体 -->
+            <geom name="right_shoulder" class="collision" type="capsule" size="0.04" fromto="0 -0.01 0.008 0 0.07 -0.02"/>
+
+            <!-- ===== 右肩偏航连杆 ===== -->
+            <body name="right_shoulder_yaw_link" pos="0 0 -0.1343">
+              <inertial pos="0.01365 -0.002767 -0.16266" quat="0.708798 -0.0473362 -0.0331229 0.703042" mass="0.839"
+                diaginertia="0.00408038 0.00370367 0.000622687"/>
+              <!-- 右肩偏航关节：绕Z轴旋转，范围约-255°~74.5°（与左肩对称反向） -->
+              <joint name="right_shoulder_yaw" axis="0 0 1" range="-4.45 1.3"/>
+              <geom class="visual" mesh="right_shoulder_yaw_link"/>
+              <!-- 右上臂碰撞体 -->
+              <geom class="collision" type="capsule" size="0.03" fromto="0 0 0.15 0 0 -0.2"/>
+
+              <!-- ===== 右肘连杆 ===== -->
+              <body name="right_elbow_link" pos="0.0185 0 -0.198">
+                <inertial pos="0.15908 0.000144 -0.015776" quat="-0.0765232 0.720327 -0.0853116 0.684102" mass="0.669"
+                  diaginertia="0.00601829 0.00600579 0.000408305"/>
+                <!-- 右肘关节：绕Y轴旋转，范围与左肘相同 -->
+                <joint name="right_elbow" axis="0 1 0" range="-1.25 2.61"/>
+                <geom class="visual" mesh="right_elbow_link"/>
+                <!-- 右前臂碰撞体 -->
+                <geom class="collision" type="capsule" size="0.025" fromto="0 0 0 0.28 0 -0.015"/>
+                <!-- 右手末端碰撞体 -->
+                <geom class="collision" type="sphere" size="0.033" pos="0.28 0 -0.015"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- ========== 接触排除 ==========
+       排除躯干与肩部横滚连杆之间的碰撞检测
+       避免手臂靠近身体时产生错误的接触力 -->
+  <contact>
+    <exclude body1="torso_link" body2="left_shoulder_roll_link"/>
+    <exclude body1="torso_link" body2="right_shoulder_roll_link"/>
+  </contact>
+
+  <!-- ========== 上身执行器（电机） ==========
+       ctrlrange 为控制力矩范围(N·m)，正值表示最大输出力矩
+       上身共有9个驱动关节 -->
+  <actuator>
+    <!-- 躯干（腰部）电机 -->
+    <motor class="h1" name="torso" joint="torso" ctrlrange="-200 200"/>
+
+    <!-- 左臂电机（4个自由度：俯仰→横滚→偏航→肘） -->
+    <motor class="h1" name="left_shoulder_pitch" joint="left_shoulder_pitch" ctrlrange="-40 40"/>
+    <motor class="h1" name="left_shoulder_roll" joint="left_shoulder_roll" ctrlrange="-40 40"/>
+    <motor class="h1" name="left_shoulder_yaw" joint="left_shoulder_yaw" ctrlrange="-18 18"/>
+    <motor class="h1" name="left_elbow" joint="left_elbow" ctrlrange="-18 18"/>
+
+    <!-- 右臂电机（4个自由度：俯仰→横滚→偏航→肘） -->
+    <motor class="h1" name="right_shoulder_pitch" joint="right_shoulder_pitch" ctrlrange="-40 40"/>
+    <motor class="h1" name="right_shoulder_roll" joint="right_shoulder_roll" ctrlrange="-40 40"/>
+    <motor class="h1" name="right_shoulder_yaw" joint="right_shoulder_yaw" ctrlrange="-18 18"/>
+    <motor class="h1" name="right_elbow" joint="right_elbow" ctrlrange="-18 18"/>
+  </actuator>
+</mujoco>

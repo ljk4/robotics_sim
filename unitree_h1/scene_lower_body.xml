@@ -1,0 +1,79 @@
+<mujoco model="h1_lower_body_scene">
+  <!-- ============================================================
+       Unitree H1 人形机器人 - 下身场景文件
+       通过 <include> 引用 h1_lower_body.xml 模型定义
+       在此基础上添加仿真环境：天空、地面、光照、关键帧
+       骨盆已固定，可直接用于下身运动的独立仿真
+       ============================================================ -->
+
+  <!-- ===== 引用下身模型文件 =====
+       h1_lower_body.xml 包含：
+       - 编译器设置、默认属性（含足底碰撞体默认类）
+       - 下身所需的所有网格资源
+       - 骨盆(固定) + 双腿 运动学树
+       - 下身10个驱动电机的执行器定义 -->
+  <include file="h1_lower_body.xml"/>
+
+  <!-- ===== 场景统计 =====
+       center  - 场景观察中心点（骨盆/髋部附近）
+       extent  - 场景包围盒半边长 -->
+  <statistic center="0 0 0.8" extent="1.2"/>
+
+  <!-- ===== 可视化设置 ===== -->
+  <visual>
+    <!-- 头灯参数 -->
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <!-- 大气雾效 -->
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <!-- 全局摄像机默认视角
+         azimuth  - 水平方位角160°（从侧面观察腿部）
+         elevation - 俯仰角-20°（略微俯视下身） -->
+    <global azimuth="160" elevation="-20"/>
+  </visual>
+
+  <!-- ===== 场景资源 =====
+       加载场景环境所需的纹理和材质
+       下身模型本身的网格资源已在 h1_lower_body.xml 中定义
+       此处不需要重复定义机器人网格，MuJoCo的include机制会自动合并 -->
+  <asset>
+    <!-- 天空盒：垂直渐变色 -->
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+
+    <!-- 地面纹理：棋盘格 -->
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+
+    <!-- 地面材质 -->
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+
+  <!-- ===== 世界定义 =====
+       worldbody元素会与 h1_lower_body.xml 中的worldbody合并
+       骨盆固定在(0,0,1.06)，本文件添加地面和光源 -->
+  <worldbody>
+    <!-- 垂直方向平行光源 -->
+    <light pos="0 0 3.5" dir="0 0 -1" directional="true"/>
+
+    <!-- 地面平面 -->
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+  </worldbody>
+
+  <!-- ===== 关键帧（预设姿态）=====
+       qpos值按关节定义顺序排列，对应下身10个驱动关节：
+       left_hip_yaw → left_hip_roll → left_hip_pitch → left_knee → left_ankle
+       → right_hip_yaw → right_hip_roll → right_hip_pitch → right_knee → right_ankle
+
+       home姿态说明：
+       - 髋偏航=0, 髋横滚=0（腿部无内外旋和外展/内收）
+       - 髋俯仰=-0.4rad(约-23°) 大腿略前倾
+       - 膝=0.8rad(约45.8°) 膝关节弯曲，降低重心
+       - 踝=-0.4rad(约-23°) 踝关节背屈，脚掌贴地
+       此姿态为微蹲准备姿态，适合进行行走/跳跃等动态任务的初始化
+       - 骨盆固定在世界坐标系中，因此无根坐标/姿态值 -->
+  <keyframe>
+    <key name="home"
+      qpos="
+    0 0 -0.4 0.8 -0.4
+    0 0 -0.4 0.8 -0.4"/>
+  </keyframe>
+</mujoco>

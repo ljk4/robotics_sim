@@ -1,0 +1,241 @@
+<mujoco model="h1_lower_body">
+  <!-- ============================================================
+       Unitree H1 人形机器人 - 下身模型
+       包含：骨盆(固定) + 双腿（髋→膝→踝）
+       骨盆通过移除 freejoint 实现固定，作为下身运动的基座
+       本文件可独立在 MuJoCo 模拟器中打开查看下身结构
+       ============================================================ -->
+
+  <!-- 编译器设置：
+       angle="radian"  - 所有角度单位使用弧度(rad)
+       meshdir="assets" - STL网格文件存放在assets子目录
+       autolimits="true" - 自动根据关节范围计算力矩/速度限制 -->
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+
+  <!-- 场景统计 -->
+  <statistic meansize="0.05"/>
+
+  <!-- ========== 默认属性定义 ==========
+       使用MJCF的class继承机制，子body通过childclass="h1"继承默认值 -->
+  <default>
+    <!-- 根默认类 -->
+    <default class="h1">
+      <!-- 关节默认阻尼和电枢惯性 -->
+      <joint damping="1" armature="0.1"/>
+
+      <!-- 视觉几何体：网格显示，不参与碰撞 -->
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" material="black"/>
+      </default>
+
+      <!-- 碰撞几何体：用于物理计算，不渲染 -->
+      <default class="collision">
+        <geom group="3" mass="0" density="0"/>
+
+        <!-- 脚底碰撞体默认：使用胶囊形状
+             足底由3个胶囊组成，模拟脚掌的接触面 -->
+        <default class="foot">
+          <geom type="capsule" size=".014"/>
+          <!-- 脚底前部碰撞体（脚趾方向） -->
+          <default class="foot1">
+            <geom fromto="-.035 0 -0.056 .02 0 -0.045"/>
+          </default>
+          <!-- 脚底中部碰撞体 -->
+          <default class="foot2">
+            <geom fromto=".02 0 -0.045 .115 0 -0.056"/>
+          </default>
+          <!-- 脚底后部（脚跟）碰撞体：较宽，覆盖脚掌宽度 -->
+          <default class="foot3">
+            <geom fromto=".14 -.03 -0.056 .14 .03 -0.056"/>
+          </default>
+        </default>
+      </default>
+
+      <!-- 站点默认 -->
+      <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
+    </default>
+  </default>
+
+  <!-- ========== 资源文件 ==========
+       仅加载下身所需的网格和材质 -->
+  <asset>
+    <material name="black" rgba="0.1 0.1 0.1 1"/>
+
+    <!-- 骨盆网格 -->
+    <mesh file="pelvis.stl"/>
+    <!-- 左腿网格（髋→膝→踝 共5个连杆） -->
+    <mesh file="left_hip_yaw_link.stl"/>
+    <mesh file="left_hip_roll_link.stl"/>
+    <mesh file="left_hip_pitch_link.stl"/>
+    <mesh file="left_knee_link.stl"/>
+    <mesh file="left_ankle_link.stl"/>
+    <!-- 右腿网格（髋→膝→踝 共5个连杆） -->
+    <mesh file="right_hip_yaw_link.stl"/>
+    <mesh file="right_hip_roll_link.stl"/>
+    <mesh file="right_hip_pitch_link.stl"/>
+    <mesh file="right_knee_link.stl"/>
+    <mesh file="right_ankle_link.stl"/>
+  </asset>
+
+  <!-- ========== 运动学树（世界坐标系） ========== -->
+  <worldbody>
+    <!-- 定向光源 -->
+    <light mode="targetbodycom" target="pelvis" pos="2 0 2.5"/>
+
+    <!-- ===== 骨盆（根连杆）=====
+         骨盆固定在世界坐标系中（无freejoint），作为双腿的固定基座
+         pos="0 0 1.06" - 骨盆中心距离地面约1.06米
+         childclass="h1" - 子body继承h1类的默认属性 -->
+    <body name="pelvis" pos="0 0 1.06" childclass="h1">
+      <!-- 骨盆惯性参数 -->
+      <inertial pos="-0.0002 4e-05 -0.04522" quat="0.498303 0.499454 -0.500496 0.501741" mass="5.39"
+        diaginertia="0.0490211 0.0445821 0.00824619"/>
+      <!-- 骨盆固定：此处没有freejoint，body相对于世界坐标系固定不动 -->
+      <geom class="visual" mesh="pelvis"/>
+
+      <!-- ===== 左髋偏航连杆 =====
+           左腿起点，位于骨盆左下方
+           pos="0 0.0875 -0.1742" - Y轴正方向（左侧）偏移87.5mm，Z轴向下偏移174.2mm -->
+      <body name="left_hip_yaw_link" pos="0 0.0875 -0.1742">
+        <inertial pos="-0.04923 0.0001 0.0072" quat="0.69699 0.219193 0.233287 0.641667" mass="2.244"
+          diaginertia="0.00304494 0.00296885 0.00189201"/>
+        <!-- 左髋偏航关节：绕Z轴旋转（大腿内外旋），范围约±24.6° -->
+        <joint name="left_hip_yaw" axis="0 0 1" range="-0.43 0.43"/>
+        <geom class="visual" mesh="left_hip_yaw_link"/>
+        <!-- 左髋偏航碰撞体：圆柱形 -->
+        <geom size="0.06 0.035" pos="-0.067 0 0" quat="0.707123 0 0.70709 0" type="cylinder" class="collision"/>
+
+        <!-- ===== 左髋横滚连杆 ===== -->
+        <body name="left_hip_roll_link" pos="0.039468 0 0">
+          <inertial pos="-0.0058 -0.00319 -9e-05" quat="0.0438242 0.70721 -0.0729075 0.701867" mass="2.232"
+            diaginertia="0.00243264 0.00225325 0.00205492"/>
+          <!-- 左髋横滚关节：绕X轴旋转（大腿外展/内收），范围约±24.6° -->
+          <joint name="left_hip_roll" axis="1 0 0" range="-0.43 0.43"/>
+          <geom class="visual" mesh="left_hip_roll_link"/>
+          <geom class="collision" type="cylinder" size="0.05 0.03" quat="1 1 0 0" pos="0 -0.02 0"/>
+
+          <!-- ===== 左髋俯仰连杆（大腿） ===== -->
+          <body name="left_hip_pitch_link" pos="0 0.11536 0">
+            <inertial pos="0.00746 -0.02346 -0.08193" quat="0.979828 0.0513522 -0.0169854 -0.192382" mass="4.152"
+              diaginertia="0.0829503 0.0821457 0.00510909"/>
+            <!-- 左髋俯仰关节：绕Y轴旋转（大腿前后摆动），范围约±90° -->
+            <joint name="left_hip_pitch" axis="0 1 0" range="-1.57 1.57"/>
+            <geom class="visual" mesh="left_hip_pitch_link"/>
+            <!-- 大腿碰撞体：两个胶囊（前后方向） + 一个圆柱（左右方向） -->
+            <geom class="collision" type="capsule" size="0.03" fromto="0.02 0 -0.4 -0.02 0 0.02"/>
+            <geom class="collision" type="capsule" size="0.03" fromto="0.02 0 -0.4 0.02 0 0.02"/>
+            <geom class="collision" type="cylinder" size="0.05 0.02" quat="1 1 0 0" pos="0 -0.07 0"/>
+
+            <!-- ===== 左膝连杆（小腿） =====
+                 pos="0 0 -0.4" - 膝关节位于大腿末端下方0.4m处 -->
+            <body name="left_knee_link" pos="0 0 -0.4">
+              <inertial pos="-0.00136 -0.00512 -0.1384" quat="0.626132 -0.034227 -0.0416277 0.777852" mass="1.721"
+                diaginertia="0.0125237 0.0123104 0.0019428"/>
+              <!-- 左膝关节：绕Y轴旋转（小腿屈伸），范围约-15°~117.5°
+                   注意：H1膝关节向后弯曲（鸟腿构型），0°为伸直状态 -->
+              <joint name="left_knee" axis="0 1 0" range="-0.26 2.05"/>
+              <geom class="visual" mesh="left_knee_link"/>
+              <!-- 小腿碰撞体 -->
+              <geom class="collision" type="capsule" size="0.025" fromto="0.02 0 -0.4 0.02 0 0"/>
+              <geom class="collision" type="sphere" size="0.05" pos="0 0 -0.115"/>
+
+              <!-- ===== 左踝连杆（足部） =====
+                   pos="0 0 -0.4" - 踝关节位于小腿末端下方0.4m处 -->
+              <body name="left_ankle_link" pos="0 0 -0.4">
+                <inertial pos="0.06722 0.00015 -0.04497" quat="0.489101 0.503197 0.565782 0.432972" mass="0.446"
+                  diaginertia="0.00220848 0.00218961 0.000214202"/>
+                <!-- 左踝关节：绕Y轴旋转（足部背屈/跖屈），范围约-50°~30° -->
+                <joint name="left_ankle" axis="0 1 0" range="-0.87 0.52"/>
+                <geom class="visual" mesh="left_ankle_link"/>
+                <!-- 足底三个碰撞胶囊（继承自foot默认类）
+                     foot1: 前脚掌前部, foot2: 前脚掌后部, foot3: 脚跟横条 -->
+                <geom class="foot1"/>
+                <geom class="foot2"/>
+                <geom class="foot3"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <!-- ===== 右髋偏航连杆 =====
+           右腿起点，位于骨盆右下方
+           结构与左腿完全对称，Y轴偏移量取反 -->
+      <body name="right_hip_yaw_link" pos="0 -0.0875 -0.1742">
+        <inertial pos="-0.04923 -0.0001 0.0072" quat="0.641667 0.233287 0.219193 0.69699" mass="2.244"
+          diaginertia="0.00304494 0.00296885 0.00189201"/>
+        <!-- 右髋偏航关节：绕Z轴旋转，范围约±24.6° -->
+        <joint name="right_hip_yaw" axis="0 0 1" range="-0.43 0.43"/>
+        <geom class="visual" mesh="right_hip_yaw_link"/>
+        <geom size="0.06 0.035" pos="-0.067 0 0" quat="0.707123 0 0.70709 0" type="cylinder" class="collision"/>
+
+        <!-- ===== 右髋横滚连杆 ===== -->
+        <body name="right_hip_roll_link" pos="0.039468 0 0">
+          <inertial pos="-0.0058 0.00319 -9e-05" quat="-0.0438242 0.70721 0.0729075 0.701867" mass="2.232"
+            diaginertia="0.00243264 0.00225325 0.00205492"/>
+          <!-- 右髋横滚关节：绕X轴旋转，范围约±24.6° -->
+          <joint name="right_hip_roll" axis="1 0 0" range="-0.43 0.43"/>
+          <geom class="visual" mesh="right_hip_roll_link"/>
+          <geom class="collision" type="cylinder" size="0.05 0.03" quat="1 1 0 0" pos="0 0.02 0"/>
+
+          <!-- ===== 右髋俯仰连杆（右大腿） ===== -->
+          <body name="right_hip_pitch_link" pos="0 -0.11536 0">
+            <inertial pos="0.00746 0.02346 -0.08193" quat="0.979828 -0.0513522 -0.0169854 0.192382" mass="4.152"
+              diaginertia="0.0829503 0.0821457 0.00510909"/>
+            <!-- 右髋俯仰关节：绕Y轴旋转，范围约±90° -->
+            <joint name="right_hip_pitch" axis="0 1 0" range="-1.57 1.57"/>
+            <geom class="visual" mesh="right_hip_pitch_link"/>
+            <!-- 右大腿碰撞体 -->
+            <geom class="collision" type="capsule" size="0.03" fromto="0.02 0 -0.4 -0.02 0 0.02"/>
+            <geom class="collision" type="capsule" size="0.03" fromto="0.02 0 -0.4 0.02 0 0.02"/>
+            <geom class="collision" type="cylinder" size="0.05 0.02" quat="1 1 0 0" pos="0 0.07 0"/>
+
+            <!-- ===== 右膝连杆（右小腿） ===== -->
+            <body name="right_knee_link" pos="0 0 -0.4">
+              <inertial pos="-0.00136 0.00512 -0.1384" quat="0.777852 -0.0416277 -0.034227 0.626132" mass="1.721"
+                diaginertia="0.0125237 0.0123104 0.0019428"/>
+              <!-- 右膝关节：绕Y轴旋转，范围约-15°~117.5° -->
+              <joint name="right_knee" axis="0 1 0" range="-0.26 2.05"/>
+              <geom class="visual" mesh="right_knee_link"/>
+              <!-- 右小腿碰撞体 -->
+              <geom class="collision" type="capsule" size="0.025" fromto="0.02 0 -0.4 0.02 0 0"/>
+              <geom class="collision" type="sphere" size="0.05" pos="0 0 -0.115"/>
+
+              <!-- ===== 右踝连杆（右足部） ===== -->
+              <body name="right_ankle_link" pos="0 0 -0.4">
+                <inertial pos="0.06722 -0.00015 -0.04497" quat="0.432972 0.565782 0.503197 0.489101" mass="0.446"
+                  diaginertia="0.00220848 0.00218961 0.000214202"/>
+                <!-- 右踝关节：绕Y轴旋转，范围约-50°~30° -->
+                <joint name="right_ankle" axis="0 1 0" range="-0.87 0.52"/>
+                <geom class="visual" mesh="right_ankle_link"/>
+                <!-- 右足底碰撞体 -->
+                <geom class="foot1"/>
+                <geom class="foot2"/>
+                <geom class="foot3"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- ========== 下身执行器（电机） ==========
+       ctrlrange 为控制力矩范围(N·m)
+       下身共有10个驱动关节（双腿各5个） -->
+  <actuator>
+    <!-- 左腿电机（5个自由度：偏航→横滚→俯仰→膝→踝） -->
+    <motor class="h1" name="left_hip_yaw" joint="left_hip_yaw" ctrlrange="-200 200"/>
+    <motor class="h1" name="left_hip_roll" joint="left_hip_roll" ctrlrange="-200 200"/>
+    <motor class="h1" name="left_hip_pitch" joint="left_hip_pitch" ctrlrange="-200 200"/>
+    <motor class="h1" name="left_knee" joint="left_knee" ctrlrange="-300 300"/>
+    <motor class="h1" name="left_ankle" joint="left_ankle" ctrlrange="-40 40"/>
+
+    <!-- 右腿电机（5个自由度：偏航→横滚→俯仰→膝→踝） -->
+    <motor class="h1" name="right_hip_yaw" joint="right_hip_yaw" ctrlrange="-200 200"/>
+    <motor class="h1" name="right_hip_roll" joint="right_hip_roll" ctrlrange="-200 200"/>
+    <motor class="h1" name="right_hip_pitch" joint="right_hip_pitch" ctrlrange="-200 200"/>
+    <motor class="h1" name="right_knee" joint="right_knee" ctrlrange="-300 300"/>
+    <motor class="h1" name="right_ankle" joint="right_ankle" ctrlrange="-40 40"/>
+  </actuator>
+</mujoco>

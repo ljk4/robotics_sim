@@ -2,7 +2,8 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 
-model = mujoco.MjModel.from_xml_path("unitree_h1\\scene.xml")
+# scene_lower_body scene_upper_body
+model = mujoco.MjModel.from_xml_path("unitree_h1\\scene_upper_body.xml")
 data = mujoco.MjData(model)
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
