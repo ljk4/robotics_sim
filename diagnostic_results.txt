@@ -1,0 +1,15 @@
+=== 诊断结果汇总 ===
+172 waypoints, radius=0.12m, z_offset=0.15m
+
+左臂:
+  半径: min=112.4mm max=127.2mm mean=123.2mm std=1.5mm
+  径向误差(vs理想): max=7.6mm mean=3.4mm
+  X方向: min=0.3458 max=0.3510 range=5.2mm std=0.8mm
+右臂:
+  半径: min=120.4mm max=132.8mm mean=123.3mm std=1.3mm
+  径向误差(vs理想): max=12.8mm mean=3.3mm
+  X方向: min=0.3441 max=0.3484 range=4.3mm std=0.8mm
+
+344 waypoints:
+  左臂: min=112.4mm max=127.3mm mean=123.2mm std=1.8mm max_err=7.6mm
+  右臂: min=120.4mm max=132.9mm mean=123.3mm std=1.5mm max_err=12.9mm
