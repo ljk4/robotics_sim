@@ -1,5 +1,0 @@
-对比结果
-左-无修正: max_err=7.6mm mean_err=3.5mm X_range=5.2mm
-左-有修正: max_err=1.4mm mean_err=0.0mm X_range=1.8mm
-右-无修正: max_err=12.8mm mean_err=3.3mm X_range=4.3mm
-右-有修正: max_err=1.5mm mean_err=0.0mm X_range=1.4mm
