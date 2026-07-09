@@ -1,0 +1,10 @@
+关节,MAE (rad/s^2),RMSE (rad/s^2),MAX (rad/s^2)
+torso,1.0237e-16,1.3715e-16,4.3604e-16
+left_shoulder_pitch,3.2682e-16,4.0230e-16,1.1102e-15
+left_shoulder_roll,6.0020e-17,8.1729e-17,2.6368e-16
+left_shoulder_yaw,3.6907e-17,5.0257e-17,1.8735e-16
+left_elbow,6.2544e-16,7.7494e-16,2.1094e-15
+right_shoulder_pitch,3.2434e-16,4.0577e-16,1.0547e-15
+right_shoulder_roll,5.8416e-17,8.0239e-17,2.4286e-16
+right_shoulder_yaw,3.7846e-17,5.0245e-17,1.7347e-16
+right_elbow,5.7115e-16,7.3818e-16,2.1649e-15
